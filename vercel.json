@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "stk-push-starter/server.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "stk-push-starter/server.js" }
+  ]
+}
