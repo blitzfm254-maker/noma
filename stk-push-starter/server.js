@@ -68,7 +68,7 @@ function configuredCredentials() {
   const accountId = process.env.STACKHERO_ACCOUNT_ID;
   const secretKey = process.env.STACKHERO_SECRET_KEY;
   if (!accountId || !secretKey || accountId === 'your_account_id' || secretKey === 'your_secret_key') {
-    throw Object.assign(new Error('Set STACKHERO_ACCOUNT_ID and STACKHERO_SECRET_KEY in your .env file first.'), { statusCode: 503 });
+    throw Object.assign(new Error('Set STACKHERO_ACCOUNT_ID and STACKHERO_SECRET_KEY in local .env or Vercel Project Settings → Environment Variables, then redeploy.'), { statusCode: 503 });
   }
   return { accountId, secretKey };
 }
