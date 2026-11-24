@@ -38,6 +38,10 @@
       <h1>STK Push demo</h1>
       <p class="intro">Send a payment prompt to a Kenyan phone number. The customer completes payment by entering their M-Pesa PIN.</p>
 
+      <label for="app_password">App access password</label>
+      <input id="app_password" type="password" autocomplete="current-password" placeholder="The APP_PASSWORD you configured" required>
+      <p class="small">This protects the public payment endpoints. It is sent only to this app over HTTPS and is not included in payment data.</p>
+
       <form id="stkForm">
         <label for="phone">Phone number</label>
         <input id="phone" name="phone" placeholder="0712345678" autocomplete="tel" required>
@@ -54,7 +58,7 @@
         <label for="description">Description (optional)</label>
         <input id="description" name="description" maxlength="100" placeholder="Order payment">
         <label for="callback_url">Callback URL (optional, HTTPS)</label>
-        <input id="callback_url" name="callback_url" type="url" placeholder="https://your-domain.com/webhook">
+        <input id="callback_url" name="callback_url" type="url" value="https://noma-topaz.vercel.app/api/webhook">
         <button id="sendButton" type="submit">Send STK Push</button>
       </form>
 
@@ -70,13 +74,16 @@
       </form>
       <div id="statusResult" class="result" role="status" aria-live="polite"></div>
     </section>
-    <footer>Demo only: payment results are not saved to a database. Never treat a browser response as proof of payment; verify the signed webhook or query status on your server.</footer>
+      <footer>Demo only: payment results are not saved to a database. The callback works only after this package's webhook endpoint is deployed at the configured domain. Never treat a browser response as proof of payment; verify the signed webhook or query status on your server.</footer>
   </main>
   <script>
     async function postJson(path, body) {
       const response = await fetch(path, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Password': document.getElementById('app_password').value
+        },
         body: JSON.stringify(body)
       });
       const data = await response.json().catch(() => ({ success: false, error: { message: 'The server returned an unreadable response.' } }));
