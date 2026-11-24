@@ -68,9 +68,23 @@ function configuredCredentials() {
   const accountId = process.env.STACKHERO_ACCOUNT_ID;
   const secretKey = process.env.STACKHERO_SECRET_KEY;
   if (!accountId || !secretKey || accountId === 'your_account_id' || secretKey === 'your_secret_key') {
-    throw Object.assign(new Error('Set STACKHERO_ACCOUNT_ID and STACKHERO_SECRET_KEY in your .env file first.'), { statusCode: 503 });
+    throw Object.assign(new Error('Set STACKHERO_ACCOUNT_ID and STACKHERO_SECRET_KEY in local .env or Vercel Project Settings → Environment Variables, then redeploy.'), { statusCode: 503 });
   }
   return { accountId, secretKey };
+}
+
+function requireAppPassword(req, res) {
+  const expected = process.env.APP_PASSWORD;
+  if (!expected || expected === 'replace_with_a_long_random_password') {
+    sendJson(res, 503, { success: false, error: { message: 'Set APP_PASSWORD to a private value before using the payment endpoints.' } });
+    return false;
+  }
+  const supplied = String(req.headers['x-app-password'] || '');
+  if (!timingSafeEqualText(expected, supplied)) {
+    sendJson(res, 401, { success: false, error: { message: 'Enter the correct app access password.' } });
+    return false;
+  }
+  return true;
 }
 
 async function stackHeroPost(endpoint, body) {
@@ -155,7 +169,7 @@ async function handleWebhook(req, res) {
   return sendJson(res, 200, { success: true, received: true, event: event.event || null });
 }
 
-const server = http.createServer(async (req, res) => {
+const handler = async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
@@ -170,12 +184,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/stkpush') {
+      if (!requireAppPassword(req, res)) return;
       const payload = validateStkPayload(await readJson(req));
       const { status, result } = await stackHeroPost('stkpush', payload);
       return sendJson(res, status, result);
     }
 
     if (req.method === 'POST' && url.pathname === '/api/status') {
+      if (!requireAppPassword(req, res)) return;
       const input = await readJson(req);
       const transactionRequestId = String(input.transaction_request_id || '').trim();
       if (!transactionRequestId || transactionRequestId.length > 200) {
@@ -185,7 +201,7 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, status, result);
     }
 
-    if (req.method === 'POST' && url.pathname === '/webhook') {
+    if (req.method === 'POST' && (url.pathname === '/webhook' || url.pathname === '/api/webhook')) {
       return await handleWebhook(req, res);
     }
 
@@ -200,8 +216,15 @@ const server = http.createServer(async (req, res) => {
     const message = status === 502 ? 'Could not reach StackHero. Check your connection and try again.' : error.message;
     return sendJson(res, status, { success: false, error: { message } });
   }
-});
+};
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`STK Push demo running at http://localhost:${PORT}`);
-});
+// Vercel imports this handler; local development starts a regular HTTP server.
+if (require.main === module) {
+  const server = http.createServer(handler);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`STK Push demo running at http://localhost:${PORT}`);
+  });
+}
+
+module.exports = handler;
+module.exports.config = { api: { bodyParser: false } };
